@@ -7,12 +7,14 @@ type ExtendedServer = HTTPServer & {
 };
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
+  
   if (!res.socket) {
     res.status(500).send('Socket not found.');
     return;
   }
-
+  // @ts-ignore
   const httpServer = res.socket.server as ExtendedServer;
+  
 
   if (!httpServer.io) {
     console.log('Создание нового Socket.IO сервера...');
