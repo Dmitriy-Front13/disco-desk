@@ -12,7 +12,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     res.status(500).send('Socket not found.');
     return;
   }
-  // @ts-ignore
+  // @ts-expect-error
   const httpServer = res.socket.server as ExtendedServer;
   
 
