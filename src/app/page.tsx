@@ -1,101 +1,213 @@
-import Image from "next/image";
+"use client"
+import { useEffect, useRef } from 'react';
+import { io, Socket } from 'socket.io-client';
 
-export default function Home() {
+export default function ScreenSharing() {
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const socketRef = useRef<Socket | null>(null);
+  const dataChannelRef = useRef<RTCDataChannel | null>(null);
+
+  const servers = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' }, // Используем публичный STUN сервер Google
+    ],
+  };
+
+  useEffect(() => {
+    socketRef.current = io({ path: '/api/signal' });
+
+    socketRef.current.on('connect', () => {
+      console.log('Подключен к серверу сигнализации');
+    });
+
+    // Создание RTCPeerConnection
+    peerConnectionRef.current = new RTCPeerConnection(servers);
+
+    // Создание Data Channel для передачи управления
+    const dataChannel = peerConnectionRef.current.createDataChannel('remoteControl');
+    dataChannelRef.current = dataChannel;
+
+    dataChannel.onopen = () => {
+      console.log('Data channel открыто, можно передавать команды управления');
+    };
+
+    dataChannel.onclose = () => {
+      console.log('Data channel закрыто');
+    };
+
+    peerConnectionRef.current.ondatachannel = (event) => {
+      const remoteDataChannel = event.channel;
+      remoteDataChannel.onmessage = handleRemoteControlMessage; // Обработка входящих команд
+    };
+
+    // Обработка ICE кандидатов
+    socketRef.current.on('candidate', (candidate: RTCIceCandidateInit) => {
+      peerConnectionRef.current?.addIceCandidate(new RTCIceCandidate(candidate));
+    });
+
+    peerConnectionRef.current.onicecandidate = (event) => {
+      if (event.candidate && socketRef.current) {
+        socketRef.current.emit('candidate', event.candidate);
+      }
+    };
+
+    peerConnectionRef.current.ontrack = (event) => {
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = event.streams[0];
+      }
+    };
+
+    return () => {
+      socketRef.current?.disconnect();
+      peerConnectionRef.current?.close();
+    };
+  }, []);
+
+  // Начало трансляции экрана
+  const startScreenShare = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
+      stream.getTracks().forEach((track) => {
+        peerConnectionRef.current?.addTrack(track, stream);
+      });
+
+      const offer = await peerConnectionRef.current?.createOffer();
+      await peerConnectionRef.current?.setLocalDescription(offer!);
+      socketRef.current?.emit('offer', offer);
+    } catch (error) {
+      console.error('Ошибка при попытке начать трансляцию экрана:', error);
+    }
+  };
+
+  // Получение offer от другого клиента
+  useEffect(() => {
+    socketRef.current?.on('offer', async (offer: RTCSessionDescriptionInit) => {
+      if (peerConnectionRef.current) {
+        await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(offer));
+
+        const answer = await peerConnectionRef.current.createAnswer();
+        await peerConnectionRef.current.setLocalDescription(answer);
+
+        socketRef.current?.emit('answer', answer);
+      }
+    });
+
+    // Получение answer от другого клиента
+    socketRef.current?.on('answer', async (answer: RTCSessionDescriptionInit) => {
+      await peerConnectionRef.current?.setRemoteDescription(new RTCSessionDescription(answer));
+    });
+  }, []);
+
+  // Обработка событий управления, поступающих с удаленного клиента
+  const handleRemoteControlMessage = (event: MessageEvent) => {
+    const message = JSON.parse(event.data);
+    if (!localVideoRef.current) return;
+
+    const { type, clientX, clientY, key, code } = message;
+
+    const videoElement = localVideoRef.current;
+    const rect = videoElement.getBoundingClientRect(); // Положение видео на странице
+
+    // Преобразование координат мыши относительно видео
+    const x = rect.left + (clientX / videoElement.offsetWidth) * rect.width;
+    const y = rect.top + (clientY / videoElement.offsetHeight) * rect.height;
+
+    if (type === 'mousemove' || type === 'click') {
+      simulateMouseEvent(type, x, y);
+    } else if (type === 'keydown' || type === 'keyup') {
+      simulateKeyboardEvent(type, key, code);
+    }
+  };
+
+  // Функция для симуляции событий мыши
+  const simulateMouseEvent = (type: string, x: number, y: number) => {
+    const event = new MouseEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      clientX: x,
+      clientY: y,
+    });
+    document.elementFromPoint(x, y)?.dispatchEvent(event);
+  };
+
+  // Функция для симуляции событий клавиатуры
+  const simulateKeyboardEvent = (type: string, key: string, code: string) => {
+    const event = new KeyboardEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      key: key,
+      code: code,
+    });
+    document.dispatchEvent(event);
+  };
+
+  // Обработка событий мыши и клавиатуры для удаленного управления
+  const handleMouseEvent = (event: React.MouseEvent) => {
+    const { clientX, clientY, type } = event;
+    if (dataChannelRef.current && dataChannelRef.current.readyState === 'open') {
+      const message = {
+        type,
+        clientX,
+        clientY,
+      };
+      dataChannelRef.current.send(JSON.stringify(message));
+    }
+  };
+
+  const handleKeyEvent = (event: React.KeyboardEvent) => {
+    if (dataChannelRef.current && dataChannelRef.current.readyState === 'open') {
+      const message = {
+        type: event.type,
+        key: event.key,
+        code: event.code,
+      };
+      dataChannelRef.current.send(JSON.stringify(message));
+    }
+  };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+    <div
+      className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4"
+      onMouseMove={handleMouseEvent}
+      onClick={handleMouseEvent}
+      onKeyDown={handleKeyEvent}
+      onKeyUp={handleKeyEvent}
+      tabIndex={0}
+    >
+      <h2 className="text-3xl font-bold text-gray-800 mb-6">Screen Sharing Component</h2>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+      <div className="flex flex-col md:flex-row items-center gap-8 mb-6">
+        <div className="w-full md:w-1/2 flex flex-col items-center">
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">Ваш экран</h3>
+          <video
+            ref={localVideoRef}
+            autoPlay
+            muted
+            className="w-full max-w-sm border-2 border-blue-500 rounded-md shadow-md"
+          />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+
+        <div className="w-full md:w-1/2 flex flex-col items-center">
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">Удаленный экран</h3>
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            className="w-full max-w-sm border-2 border-green-500 rounded-md shadow-md"
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        </div>
+      </div>
+
+      <button
+        onClick={startScreenShare}
+        className="px-6 py-3 text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-lg transition duration-200"
+      >
+        Начать трансляцию экрана
+      </button>
     </div>
   );
 }
