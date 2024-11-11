@@ -210,6 +210,23 @@ export default function ScreenSharing() {
         </div>
       </div>
 
+      <div className="flex flex-col items-center gap-4 mb-6">
+        <button className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition">
+          Тестовая кнопка
+        </button>
+        <input
+          type="text"
+          className="px-3 py-2 border rounded-md shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Введите текст для теста"
+        />
+        <div
+          className="w-24 h-24 bg-red-500 flex items-center justify-center text-white rounded-md shadow-md cursor-pointer"
+          onClick={() => console.log('Тестовый div кликнут')}
+        >
+          Тестовый Div
+        </div>
+      </div>
+
       <button
         onClick={startScreenShare}
         className="px-6 py-3 text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-lg transition duration-200"
