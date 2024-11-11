@@ -16,7 +16,8 @@ export default function ScreenSharing() {
   };
 
   useEffect(() => {
-    socketRef.current = io({ path: '/api/signal' });
+    socketRef.current = io(
+      { path: '/api/signal' });
 
     socketRef.current.on('connect', () => {
       console.log('Подключен к серверу сигнализации');
@@ -105,6 +106,7 @@ export default function ScreenSharing() {
 
   // Обработка событий управления, поступающих с удаленного клиента
   const handleRemoteControlMessage = (event: MessageEvent) => {
+    console.log('Получено сообщение управления:', event.data);
     const message = JSON.parse(event.data);
     if (!localVideoRef.current) return;
 
@@ -132,6 +134,8 @@ export default function ScreenSharing() {
       clientX: x,
       clientY: y,
     });
+    console.log('asdasdasd');
+
     document.elementFromPoint(x, y)?.dispatchEvent(event);
   };
 
@@ -143,6 +147,8 @@ export default function ScreenSharing() {
       key: key,
       code: code,
     });
+    console.log('asdasdasd');
+    
     document.dispatchEvent(event);
   };
 
@@ -155,6 +161,7 @@ export default function ScreenSharing() {
         clientX,
         clientY,
       };
+      console.log('Отправка события мыши:', message);
       dataChannelRef.current.send(JSON.stringify(message));
     }
   };
@@ -166,6 +173,7 @@ export default function ScreenSharing() {
         key: event.key,
         code: event.code,
       };
+      console.log('Отправка события клавы:', message);
       dataChannelRef.current.send(JSON.stringify(message));
     }
   };
