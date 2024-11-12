@@ -115,11 +115,11 @@ export default function ScreenSharing() {
     const videoElement = localVideoRef.current;
     const rect = videoElement.getBoundingClientRect(); // Положение видео на странице
 
-    // Преобразование координат мыши относительно видео
-    const x = rect.left + (clientX / videoElement.offsetWidth) * rect.width;
-    const y = rect.top + (clientY / videoElement.offsetHeight) * rect.height;
+    // Преобразование координат относительно размера видео
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
 
-    if (type === 'mousemove' || type === 'click') {
+    if (type === 'click') {
       simulateMouseEvent(type, x, y);
     } else if (type === 'keydown' || type === 'keyup') {
       simulateKeyboardEvent(type, key, code);
@@ -134,7 +134,7 @@ export default function ScreenSharing() {
       clientX: x,
       clientY: y,
     });
-    console.log('asdasdasd');
+    console.log('Симуляция события мыши:', { type, x, y });
 
     document.elementFromPoint(x, y)?.dispatchEvent(event);
   };
@@ -147,7 +147,7 @@ export default function ScreenSharing() {
       key: key,
       code: code,
     });
-    console.log('asdasdasd');
+    console.log('Симуляция события клавиатуры:', { type, key, code });
     
     document.dispatchEvent(event);
   };
@@ -161,8 +161,10 @@ export default function ScreenSharing() {
         clientX,
         clientY,
       };
+      if (type === 'click') {
       console.log('Отправка события мыши:', message);
       dataChannelRef.current.send(JSON.stringify(message));
+    }
     }
   };
 
@@ -181,7 +183,6 @@ export default function ScreenSharing() {
   return (
     <div
       className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4"
-      onMouseMove={handleMouseEvent}
       onClick={handleMouseEvent}
       onKeyDown={handleKeyEvent}
       onKeyUp={handleKeyEvent}
@@ -211,6 +212,13 @@ export default function ScreenSharing() {
       </div>
 
       <div className="flex flex-col items-center gap-4 mb-6">
+        <video
+          controls
+          className="w-full max-w-md border-2 border-yellow-500 rounded-md shadow-md"
+          src="https://www.w3schools.com/html/mov_bbb.mp4"
+        >
+          Ваш браузер не поддерживает видео.
+        </video>
         <button className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition">
           Тестовая кнопка
         </button>
