@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useRef } from 'react';
-import { io, Socket } from 'socket.io-client';
+import { useEffect, useRef } from "react";
+import { io, Socket } from "socket.io-client";
 
 export default function ScreenSharing() {
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -11,31 +11,31 @@ export default function ScreenSharing() {
 
   const servers = {
     iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' }, // Используем публичный STUN сервер Google
+      { urls: "stun:stun.l.google.com:19302" }, // Используем публичный STUN сервер Google
     ],
   };
 
   useEffect(() => {
-    socketRef.current = io(
-      { path: '/api/signal' });
+    socketRef.current = io({ path: "/api/signal" });
 
-    socketRef.current.on('connect', () => {
-      console.log('Подключен к серверу сигнализации');
+    socketRef.current.on("connect", () => {
+      console.log("Подключен к серверу сигнализации");
     });
 
     // Создание RTCPeerConnection
     peerConnectionRef.current = new RTCPeerConnection(servers);
 
     // Создание Data Channel для передачи управления
-    const dataChannel = peerConnectionRef.current.createDataChannel('remoteControl');
+    const dataChannel =
+      peerConnectionRef.current.createDataChannel("remoteControl");
     dataChannelRef.current = dataChannel;
 
     dataChannel.onopen = () => {
-      console.log('Data channel открыто, можно передавать команды управления');
+      console.log("Data channel открыто, можно передавать команды управления");
     };
 
     dataChannel.onclose = () => {
-      console.log('Data channel закрыто');
+      console.log("Data channel закрыто");
     };
 
     peerConnectionRef.current.ondatachannel = (event) => {
@@ -44,13 +44,15 @@ export default function ScreenSharing() {
     };
 
     // Обработка ICE кандидатов
-    socketRef.current.on('candidate', (candidate: RTCIceCandidateInit) => {
-      peerConnectionRef.current?.addIceCandidate(new RTCIceCandidate(candidate));
+    socketRef.current.on("candidate", (candidate: RTCIceCandidateInit) => {
+      peerConnectionRef.current?.addIceCandidate(
+        new RTCIceCandidate(candidate)
+      );
     });
 
     peerConnectionRef.current.onicecandidate = (event) => {
       if (event.candidate && socketRef.current) {
-        socketRef.current.emit('candidate', event.candidate);
+        socketRef.current.emit("candidate", event.candidate);
       }
     };
 
@@ -69,7 +71,9 @@ export default function ScreenSharing() {
   // Начало трансляции экрана
   const startScreenShare = async () => {
     try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+      });
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
       }
@@ -79,34 +83,41 @@ export default function ScreenSharing() {
 
       const offer = await peerConnectionRef.current?.createOffer();
       await peerConnectionRef.current?.setLocalDescription(offer!);
-      socketRef.current?.emit('offer', offer);
+      socketRef.current?.emit("offer", offer);
     } catch (error) {
-      console.error('Ошибка при попытке начать трансляцию экрана:', error);
+      console.error("Ошибка при попытке начать трансляцию экрана:", error);
     }
   };
 
   // Получение offer от другого клиента
   useEffect(() => {
-    socketRef.current?.on('offer', async (offer: RTCSessionDescriptionInit) => {
+    socketRef.current?.on("offer", async (offer: RTCSessionDescriptionInit) => {
       if (peerConnectionRef.current) {
-        await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(offer));
+        await peerConnectionRef.current.setRemoteDescription(
+          new RTCSessionDescription(offer)
+        );
 
         const answer = await peerConnectionRef.current.createAnswer();
         await peerConnectionRef.current.setLocalDescription(answer);
 
-        socketRef.current?.emit('answer', answer);
+        socketRef.current?.emit("answer", answer);
       }
     });
 
     // Получение answer от другого клиента
-    socketRef.current?.on('answer', async (answer: RTCSessionDescriptionInit) => {
-      await peerConnectionRef.current?.setRemoteDescription(new RTCSessionDescription(answer));
-    });
+    socketRef.current?.on(
+      "answer",
+      async (answer: RTCSessionDescriptionInit) => {
+        await peerConnectionRef.current?.setRemoteDescription(
+          new RTCSessionDescription(answer)
+        );
+      }
+    );
   }, []);
 
   // Обработка событий управления, поступающих с удаленного клиента
   const handleRemoteControlMessage = (event: MessageEvent) => {
-    console.log('Получено сообщение управления:', event.data);
+    console.log("Получено сообщение управления:", event.data);
     const message = JSON.parse(event.data);
     if (!localVideoRef.current) return;
 
@@ -119,9 +130,9 @@ export default function ScreenSharing() {
     const x = clientX - rect.left;
     const y = clientY - rect.top;
 
-    if (type === 'click') {
+    if (type === "click") {
       simulateMouseEvent(type, x, y);
-    } else if (type === 'keydown' || type === 'keyup') {
+    } else if (type === "keydown" || type === "keyup") {
       simulateKeyboardEvent(type, key, code);
     }
   };
@@ -134,7 +145,7 @@ export default function ScreenSharing() {
       clientX: x,
       clientY: y,
     });
-    console.log('Симуляция события мыши:', { type, x, y });
+    console.log("Симуляция события мыши:", { type, x, y });
 
     document.elementFromPoint(x, y)?.dispatchEvent(event);
   };
@@ -147,35 +158,41 @@ export default function ScreenSharing() {
       key: key,
       code: code,
     });
-    console.log('Симуляция события клавиатуры:', { type, key, code });
-    
+    console.log("Симуляция события клавиатуры:", { type, key, code });
+
     document.dispatchEvent(event);
   };
 
   // Обработка событий мыши и клавиатуры для удаленного управления
   const handleMouseEvent = (event: React.MouseEvent) => {
     const { clientX, clientY, type } = event;
-    if (dataChannelRef.current && dataChannelRef.current.readyState === 'open') {
+    if (
+      dataChannelRef.current &&
+      dataChannelRef.current.readyState === "open"
+    ) {
       const message = {
         type,
         clientX,
         clientY,
       };
-      if (type === 'click') {
-        console.log('Отправка события мыши:', message);
+      if (type === "click") {
+        console.log("Отправка события мыши:", message);
         dataChannelRef.current.send(JSON.stringify(message));
       }
     }
   };
 
   const handleKeyEvent = (event: React.KeyboardEvent) => {
-    if (dataChannelRef.current && dataChannelRef.current.readyState === 'open') {
+    if (
+      dataChannelRef.current &&
+      dataChannelRef.current.readyState === "open"
+    ) {
       const message = {
         type: event.type,
         key: event.key,
         code: event.code,
       };
-      console.log('Отправка события клавы:', message);
+      console.log("Отправка события клавы:", message);
       dataChannelRef.current.send(JSON.stringify(message));
     }
   };
@@ -188,11 +205,15 @@ export default function ScreenSharing() {
       onKeyUp={handleKeyEvent}
       tabIndex={0}
     >
-      <h2 className="text-3xl font-bold text-gray-800 mb-6">Screen Sharing Component</h2>
+      <h2 className="text-3xl font-bold text-gray-800 mb-6">
+        Screen Sharing Component
+      </h2>
 
       <div className="flex flex-col md:flex-row items-center gap-8 mb-6">
         <div className="w-full md:w-1/2 flex flex-col items-center">
-          <h3 className="text-xl font-semibold text-gray-700 mb-2">Ваш экран</h3>
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">
+            Ваш экран
+          </h3>
           <video
             ref={localVideoRef}
             autoPlay
@@ -202,7 +223,9 @@ export default function ScreenSharing() {
         </div>
 
         <div className="w-full md:w-1/2 flex flex-col items-center">
-          <h3 className="text-xl font-semibold text-gray-700 mb-2">Удаленный экран</h3>
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">
+            Удаленный экран
+          </h3>
           <video
             ref={remoteVideoRef}
             autoPlay
@@ -217,6 +240,23 @@ export default function ScreenSharing() {
       >
         Начать трансляцию экрана
       </button>
+
+      <div className="flex flex-col items-center gap-4 mb-6">
+        <button className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition">
+          Тестовая кнопка
+        </button>
+        <input
+          type="text"
+          className="px-3 py-2 border rounded-md shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Введите текст для теста"
+        />
+        <div
+          className="w-24 h-24 bg-red-500 flex items-center justify-center text-white rounded-md shadow-md cursor-pointer"
+          onClick={() => console.log("Тестовый div кликнут")}
+        >
+          Тестовый Div
+        </div>
+      </div>
     </div>
   );
 }
