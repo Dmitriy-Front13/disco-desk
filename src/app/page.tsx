@@ -1,4 +1,4 @@
-"use client"
+"use client";
 import { useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 
@@ -162,9 +162,9 @@ export default function ScreenSharing() {
         clientY,
       };
       if (type === 'click') {
-      console.log('Отправка события мыши:', message);
-      dataChannelRef.current.send(JSON.stringify(message));
-    }
+        console.log('Отправка события мыши:', message);
+        dataChannelRef.current.send(JSON.stringify(message));
+      }
     }
   };
 
@@ -208,30 +208,6 @@ export default function ScreenSharing() {
             autoPlay
             className="w-full max-w-sm border-2 border-green-500 rounded-md shadow-md"
           />
-        </div>
-      </div>
-
-      <div className="flex flex-col items-center gap-4 mb-6">
-        <video
-          controls
-          className="w-full max-w-md border-2 border-yellow-500 rounded-md shadow-md"
-          src="https://www.w3schools.com/html/mov_bbb.mp4"
-        >
-          Ваш браузер не поддерживает видео.
-        </video>
-        <button className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition">
-          Тестовая кнопка
-        </button>
-        <input
-          type="text"
-          className="px-3 py-2 border rounded-md shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="Введите текст для теста"
-        />
-        <div
-          className="w-24 h-24 bg-red-500 flex items-center justify-center text-white rounded-md shadow-md cursor-pointer"
-          onClick={() => console.log('Тестовый div кликнут')}
-        >
-          Тестовый Div
         </div>
       </div>
 
