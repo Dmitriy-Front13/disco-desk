@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { Server as SocketIOServer } from 'socket.io';
 import { Server as HTTPServer } from 'http';
-import { mouse, keyboard, Key, left, right, up, down } from '@nut-tree-fork/nut-js';
+import { mouse, keyboard, Key, left, up,  } from '@nut-tree-fork/nut-js';
 
 type ExtendedServer = HTTPServer & {
   io?: SocketIOServer;
